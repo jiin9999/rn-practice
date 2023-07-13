@@ -6,19 +6,30 @@ import {
   TouchableOpacity,
   TextInput,
   ScrollView,
+  Alert,
 } from "react-native";
+import { Fontisto } from "@expo/vector-icons";
 import { theme } from "./colors";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useState, useEffect } from "react";
 
 const STORAGE_KEY = "@todos";
-
+const TAB_STATE = "@tabState";
 export default function App() {
   const [working, setWorking] = useState(true);
   const [text, setText] = useState("");
   const [todos, setTodos] = useState({});
-  const travel = () => setWorking(false);
-  const work = () => setWorking(true);
+
+  const travel = async () => {
+    await AsyncStorage.setItem(TAB_STATE, "false");
+    setWorking(false);
+  };
+
+  const work = async () => {
+    await AsyncStorage.setItem(TAB_STATE, "true");
+    setWorking(true);
+  };
+
   const loadTodos = async () => {
     try {
       const persistTodos = await AsyncStorage.getItem(STORAGE_KEY);
@@ -29,7 +40,18 @@ export default function App() {
     }
   };
 
+  const loadHeaderTabState = async () => {
+    try {
+      const persistTabState = await AsyncStorage.getItem(TAB_STATE);
+      const parsedTabState = persistTabState ? persistTabState : true;
+      parsedTabState === "false" ? setWorking(false) : setWorking(true);
+    } catch (e) {
+      console.log(e);
+    }
+  };
+
   useEffect(() => {
+    loadHeaderTabState();
     loadTodos();
   }, []);
 
@@ -46,6 +68,22 @@ export default function App() {
   const saveTodos = async (toSave) => {
     await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(toSave));
     const persistTodos = await AsyncStorage.getItem(STORAGE_KEY);
+  };
+
+  const deleteTodo = (key) => {
+    Alert.alert("Todo를 삭제하시겠습니까?", todos[key].text, [
+      { text: "Cancel" },
+      {
+        text: "OK",
+        style: "destructive",
+        onPress: () => {
+          const newTodos = { ...todos };
+          delete newTodos[key];
+          setTodos(newTodos);
+          saveTodos(newTodos);
+        },
+      },
+    ]);
   };
 
   const onChangeText = (payload) => setText(payload);
@@ -90,6 +128,9 @@ export default function App() {
           todos[key].working === working ? (
             <View style={styles.todo} key={key}>
               <Text style={styles.todoText}>{todos[key].text}</Text>
+              <TouchableOpacity onPress={() => deleteTodo(key)}>
+                <Fontisto name="trash" size={20} color={theme.grey} />
+              </TouchableOpacity>
             </View>
           ) : null
         )}
